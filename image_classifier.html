@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Dog Breed Discovery</title>
+<meta name="description" content="Coarse and fine grained dog breed discovery using pretrained CNN and Vision Transformer feature extractors, by Salamot Fakoya and Isabella Ran. Unsupervised clustering across Imagewoof, Oxford Dogs, and Oxford Cats.">
+<meta property="og:title" content="Coarse and Fine Grained Dog Breed Discovery">
+<meta property="og:description" content="A computer vision research project evaluating ResNet 18, VGG 16, and Vision Transformers as unsupervised feature extractors for breed level clustering.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root, [data-theme="light"] {
+    color-scheme: light;
+    --bg: #f6f8fb; --bg-alt: #ffffff; --text: #131826; --muted: #4f586b;
+    --accent: #1f5eff; --accent-soft: #dbe6ff; --border: #e2e6ee;
+    --card: #ffffff; --shadow: 0 6px 24px rgba(20,30,60,.09);
+    --chip: #eef2ff; --good: #15a34a; --warn: #d97706; --btn-text: #ffffff;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0e1017; --bg-alt: #151924; --text: #e9ebf2; --muted: #a6afc2;
+    --accent: #6ba3ff; --accent-soft: #1d3a63; --border: #2a3142; --card: #1a1f2c;
+    --shadow: 0 6px 24px rgba(0,0,0,.45); --chip: #202839; --good: #4ade80;
+    --warn: #fbbf24; --btn-text: #0e1017;
+  }
+  [data-theme="navy"] {
+    color-scheme: dark;
+    --bg: #061831; --bg-alt: #0a2140; --text: #f5f8fc; --muted: #c2cfe4;
+    --accent: #ecc061; --accent-soft: #23436e; --border: #2b5183;
+    --card: #0d2748; --shadow: 0 6px 24px rgba(0,0,0,.4);
+    --chip: #163a63; --good: #7cebac; --warn: #f4cf72; --btn-text: #061831;
+  }
+  [data-theme="forest"] {
+    color-scheme: light;
+    --bg: #f7fad8; --bg-alt: #ffffff; --text: #132a13; --muted: #31572c;
+    --accent: #4f772d; --accent-soft: #ecf39e; --border: #d8e1c4;
+    --card: #ffffff; --shadow: 0 6px 24px rgba(19,42,19,.10);
+    --chip: #ebf0e0; --good: #4f772d; --warn: #132a13; --btn-text: #ffffff;
+  }
+  [data-theme="clay"] {
+    color-scheme: light;
+    --bg: #fefcec; --bg-alt: #ffffff; --text: #283618; --muted: #606c38;
+    --accent: #bc6c25; --accent-soft: #fefae0; --border: #f3dec7;
+    --card: #ffffff; --shadow: 0 6px 24px rgba(40,54,24,.10);
+    --chip: #faf1e7; --good: #606c38; --warn: #bc6c25; --btn-text: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    transition: background .35s ease, color .35s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body.mode-tech .nontech { display: none !important; }
+  body.mode-nontech .tech { display: none !important; }
+
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+    background: var(--accent); z-index: 60; transition: width .1s linear;
+  }
+
+  nav {
+    position: fixed; top: 3px; left: 0; right: 0; z-index: 50;
+    padding: .55rem 1.1rem; background: color-mix(in srgb, var(--bg-alt) 90%, transparent);
+    backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+  }
+  nav .nav-inner {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; justify-content: space-between;
+    max-width: 1100px; margin: 0 auto; width: 100%;
+  }
+  nav .brand { font-weight: 700; font-size: 1rem; margin-right: auto; letter-spacing: .01em; }
+  nav .brand span { color: var(--accent); }
+  .switch-group { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .switch-group button {
+    border: 0; background: var(--card); color: var(--text);
+    padding: .35rem .8rem; font-size: .8rem; cursor: pointer; transition: background .2s, color .2s;
+  }
+  .switch-group button.active { background: var(--accent); color: var(--btn-text); font-weight: 600; }
+  .iconbtn {
+    display: inline-flex; align-items: center; gap: .35rem;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: .35rem .7rem; font-size: .8rem; background: var(--card);
+    cursor: pointer; color: var(--text); transition: border-color .2s;
+  }
+  .iconbtn:hover { border-color: var(--accent); }
+
+  .menu-wrap { position: relative; }
+  .menu-panel {
+    position: fixed; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+    padding: .4rem; min-width: 220px; max-height: 70vh; overflow: auto;
+    opacity: 0; transform: translateY(-8px) scale(.98); transform-origin: top right;
+    pointer-events: none; transition: opacity .18s ease, transform .18s ease;
+  }
+  .menu-panel.open { opacity: 1; transform: none; pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .menu-panel { transition: none; } }
+  .menu-panel a, .menu-panel button {
+    display: block; width: 100%; padding: .5rem .7rem; border-radius: 8px;
+    color: var(--text); text-decoration: none; font-size: .85rem;
+    background: none; border: 0; text-align: left; font-family: inherit; cursor: pointer;
+  }
+  .menu-panel a:hover, .menu-panel button:hover { background: var(--chip); color: var(--accent); }
+
+  section.slide {
+    min-height: auto;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 2.4rem 1.5rem; max-width: 980px; margin: 0 auto;
+    scroll-margin-top: calc(var(--nav-h, 66px) + 12px);
+  }
+  section.slide:first-of-type { min-height: 82vh; padding-top: calc(var(--nav-h, 66px) + 1.5rem); }
+  section.slide > * {
+    opacity: 0; transform: translateY(22px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  section.slide.in > * { opacity: 1; transform: none; }
+  section.slide.in > *:nth-child(2) { transition-delay: .07s; }
+  section.slide.in > *:nth-child(3) { transition-delay: .14s; }
+  section.slide.in > *:nth-child(4) { transition-delay: .21s; }
+  section.slide.in > *:nth-child(5) { transition-delay: .28s; }
+  @media (prefers-reduced-motion: reduce) {
+    section.slide > * { opacity: 1 !important; transform: none !important; transition: none; }
+  }
+
+  .kicker {
+    color: var(--accent); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .13em; font-size: .78rem; margin-bottom: .8rem;
+  }
+  h1 { font-size: clamp(2.5rem, 6.5vw, 3.7rem); line-height: 1.08; margin-bottom: 1.1rem; letter-spacing: -.01em; }
+  h2 { font-size: clamp(1.9rem, 5vw, 2.5rem); margin-bottom: 1rem; line-height: 1.14; letter-spacing: -.01em; }
+  h3 { font-size: 1.12rem; margin-bottom: .5rem; }
+  p, li { color: var(--muted); line-height: 1.68; font-size: 1.06rem; }
+  p strong, li strong { color: var(--text); }
+  .lede { font-size: 1.2rem; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 1.3rem 1.5rem; box-shadow: var(--shadow);
+  }
+  details.card summary {
+    cursor: pointer; list-style: none; font-size: 1.12rem; font-weight: 700; color: var(--text);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  details.card summary::-webkit-details-marker { display: none; }
+  details.card summary::after {
+    content: '+'; font-size: 1.5rem; line-height: 1; color: var(--accent); flex-shrink: 0; transition: transform .2s ease;
+  }
+  details.card[open] summary::after { transform: rotate(45deg); }
+  details.card p { margin-top: .8rem; }
+  details.card ul { margin-top: .8rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 1.4rem; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .statrow { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.6rem 0; align-items: stretch; }
+  .stat { flex: 1 1 130px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1rem; text-align: center; }
+  .stat .num { font-size: 1.7rem; font-weight: 800; color: var(--text); }
+  .stat .lbl { font-size: .8rem; color: var(--muted); margin-top: .2rem; }
+  .stat.primary { flex: 1.5 1 180px; background: var(--accent-soft); border: 1px solid var(--accent); }
+  .stat.primary .num { color: var(--accent); font-size: 2.3rem; }
+  .stat.primary .lbl { color: var(--muted); font-weight: 600; }
+
+  .chartbox { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.2rem; margin-top: 1.4rem; box-shadow: var(--shadow); }
+  .chartbox .caption { font-size: .84rem; color: var(--muted); margin-top: .7rem; text-align: center; }
+  .chart-holder { position: relative; width: 100%; height: 340px; }
+  @media (max-width: 600px) { .chart-holder { height: 290px; } }
+
+  .chip { display: inline-block; background: var(--chip); color: var(--text); border-radius: 8px; padding: .2rem .6rem; font-size: .82rem; margin: .15rem .2rem .15rem 0; border: 1px solid var(--border); }
+  table.cm { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: .95rem; }
+  table.cm th, table.cm td { border: 1px solid var(--border); padding: .7rem; text-align: center; }
+  table.cm th { background: var(--chip); font-size: .82rem; }
+  table.cm td.good { color: var(--good); font-weight: 700; }
+  table.cm td.bad { color: var(--warn); font-weight: 700; }
+  ul.clean { list-style: none; padding: 0; }
+  ul.clean li { padding-left: 1.4rem; position: relative; margin-bottom: .6rem; }
+  ul.clean li::before { content: "\2192"; position: absolute; left: 0; color: var(--accent); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: var(--accent); color: var(--btn-text); border: 0; border-radius: 12px;
+    padding: .7rem 1.3rem; font-size: .95rem; font-weight: 600; cursor: pointer;
+    text-decoration: none; transition: transform .15s, opacity .15s;
+  }
+  .btn:hover { transform: translateY(-2px); opacity: .93; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .links a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .links a:hover { text-decoration: underline; }
+
+  .share { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.3rem; }
+  .share button, .share a {
+    display: inline-flex; align-items: center; gap: .4rem;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 10px; padding: .55rem .9rem; font-size: .88rem; cursor: pointer;
+    text-decoration: none; transition: border-color .2s, transform .15s;
+  }
+  .share button:hover, .share a:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+  .menu-panel a.on { background: var(--chip); color: var(--accent); font-weight: 600; }
+  .menu-panel button.active { background: var(--chip); color: var(--accent); font-weight: 600; }
+
+  .toc { margin: 1.6rem 0 .4rem; }
+  .toc .toc-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 700; margin-bottom: .6rem; }
+  .toc-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .toc-chips a {
+    display: inline-flex; align-items: center; gap: .4rem;
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: .4rem .85rem; font-size: .84rem; color: var(--text); text-decoration: none;
+    transition: border-color .2s, transform .15s, background .2s;
+  }
+  .toc-chips a:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+  .toc-chips a .n { font-size: .72rem; color: var(--accent); font-weight: 700; }
+
+  #toTop {
+    position: fixed; right: 1.1rem; bottom: 1.1rem; z-index: 45;
+    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--accent); color: var(--btn-text); font-size: 1.1rem; cursor: pointer;
+    box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: opacity .3s, transform .15s;
+  }
+  #toTop.show { opacity: 1; pointer-events: auto; }
+  #toTop:hover { transform: translateY(-3px); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(8,14,28,.6); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+    backdrop-filter: blur(5px); animation: fadeIn .35s ease;
+  }
+  .overlay.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+  .modal {
+    position: relative; background: var(--card); color: var(--text); border-radius: 20px;
+    max-width: 380px; width: 100%; padding: 2rem; text-align: center;
+    border: 1px solid var(--border); box-shadow: 0 24px 70px rgba(0,0,0,.4);
+    animation: popIn .4s ease;
+  }
+  .modal-close {
+    position: absolute; top: .7rem; right: .7rem; width: 32px; height: 32px;
+    border: 0; border-radius: 999px; background: transparent; color: var(--muted);
+    font-size: 1.3rem; line-height: 1; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; transition: background .2s, color .2s;
+  }
+  .modal-close:hover { background: var(--chip); color: var(--text); }
+  .modal h2 { font-size: 1.4rem; }
+  .modal p { margin: .7rem 0 1.4rem; }
+  .modal .choices { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-top: 1.3rem; }
+  .choice {
+    border: 1.5px solid var(--border); border-radius: 14px; background: var(--bg-alt);
+    padding: 1rem; cursor: pointer; text-align: center; color: var(--text);
+    transition: border-color .2s, transform .15s; font-size: 1rem;
+  }
+  .choice:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .choice b { display: block; font-weight: 700; }
+  .choice small { color: var(--muted); }
+  .modal .note { font-size: .78rem; color: var(--muted); margin-top: 1.3rem; margin-bottom: 0; }
+
+  footer { text-align: center; padding: 2rem 1rem 3rem; color: var(--muted); font-size: .85rem; }
+
+  @media (max-width: 600px) {
+    section.slide { padding: 2rem 1.2rem; }
+    .iconbtn, .switch-group button { min-height: 40px; padding-top: .5rem; padding-bottom: .5rem; }
+    .menu-wrap { margin-left: .15rem; }
+    .menu-panel a, .menu-panel button { padding: .7rem .8rem; }
+    p, li { font-size: 1.1rem; line-height: 1.72; }
+    .lede { font-size: 1.22rem; }
+    h3 { font-size: 1.18rem; }
+    .chip { font-size: .9rem; }
+    .stat .num { font-size: 1.9rem; }
+    .stat.primary .num { font-size: 2.5rem; }
+    nav { background: color-mix(in srgb, var(--bg-alt) 25%, transparent); backdrop-filter: blur(20px) saturate(160%); }
+  }
+
+  @page { margin: 0.6in; }
+  @media print {
+    #progress, nav, #toTop, .overlay, .no-print { display: none !important; }
+    body { background: #fff; color: #111; }
+    section.slide { min-height: auto; padding: 1rem 0; page-break-inside: avoid; max-width: 100%; }
+    section.slide > * { opacity: 1 !important; transform: none !important; }
+    .card, .chartbox, .stat { box-shadow: none; border-color: #ccc; }
+    p, li { color: #333; }
+    .stat.primary { background: #eef2ff !important; }
+    .stat.primary .num { color: #1f5eff !important; }
+    .stat.primary .lbl { color: #444 !important; }
+    .chart-holder { width: 100% !important; }
+  }
+</style>
+</head>
+<body class="mode-nontech">
+
+<div id="progress"></div>
+
+<nav>
+ <div class="nav-inner">
+  <div class="brand">Sal <span>Fakoya</span></div>
+  <div class="menu-wrap">
+    <button class="iconbtn" id="themeBtn" onclick="toggleThemeMenu()" title="Theme"
+            aria-haspopup="true" aria-expanded="false" aria-controls="themePanel">&#9681; <span id="themeBtnLabel">Light</span></button>
+    <div class="menu-panel" id="themePanel" role="menu" aria-label="Theme">
+      <button data-theme-choice="light" onclick="setTheme('light')">Light</button>
+      <button data-theme-choice="dark" onclick="setTheme('dark')">Dark</button>
+      <button data-theme-choice="navy" onclick="setTheme('navy')">Navy</button>
+      <button data-theme-choice="forest" onclick="setTheme('forest')">Forest</button>
+      <button data-theme-choice="clay" onclick="setTheme('clay')">Clay</button>
+    </div>
+  </div>
+  <button class="iconbtn" onclick="downloadPDF()" title="Download as PDF">&#8595; PDF</button>
+  <div class="menu-wrap">
+    <button class="iconbtn" id="menuBtn" onclick="toggleMenu()" title="Jump to section"
+            aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel">&#9776; Sections</button>
+    <div class="menu-panel" id="menuPanel" role="menu" aria-label="Jump to section"></div>
+  </div>
+ </div>
+</nav>
+
+<button id="toTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8593;</button>
+
+<main>
+
+<!-- 1 HERO -->
+<section class="slide" id="s1" data-title="Overview">
+  <div class="kicker">A Computer Vision Research Project &middot; CS 4375 Machine Learning</div>
+  <h1>Coarse and Fine Grained Dog Breed Discovery</h1>
+  <p class="lede">Dogs come in an enormous range of shapes, sizes, and coat patterns after thousands of years of selective breeding, which makes telling breeds apart a genuinely hard visual problem. This project tests whether a neural network that was never taught breed labels can still learn to group photos by breed on its own, using four pretrained models across four datasets of increasing difficulty.</p>
+  <div class="statrow">
+    <div class="stat primary"><div class="num">79.6% <span style="font-size:1.1rem; font-weight:600;">(0.796)</span></div><div class="lbl">Best ARI (ViT B/16, Oxford Dogs)</div></div>
+    <div class="stat"><div class="num">4</div><div class="lbl">Datasets evaluated</div></div>
+    <div class="stat"><div class="num">4</div><div class="lbl">Feature extractors compared</div></div>
+    <div class="stat"><div class="num">25</div><div class="lbl">Breeds, hardest benchmark</div></div>
+  </div>
+  <div class="toc no-print">
+    <div class="toc-label">What's inside</div>
+    <div class="toc-chips" id="heroToc"></div>
+  </div>
+  <div class="no-print" style="margin-top:.6rem;">
+    <a class="btn" href="#s2">Start the walkthrough &#8595;</a>
+  </div>
+</section>
+
+<!-- 2 MOTIVATION -->
+<section class="slide" id="s2" data-title="Motivation">
+  <div class="kicker">01 &middot; Motivation and Problem Framing</div>
+  <h2>Motivation and Problem Framing</h2>
+  <p>Recognizing an individual dog breed is hard even for people. Breeds can look similar to each other while photos of the same breed vary widely in pose, lighting, and background. The goal of this project is to see whether a model trained only on general image recognition, with no breed specific training at all, already contains enough visual understanding to group dogs by breed correctly, purely by noticing which photos look most alike.</p>
+</section>
+
+<!-- 3 DATASETS -->
+<section class="slide" id="s3" data-title="Datasets">
+  <div class="kicker">02 &middot; The Data</div>
+  <h2>Dataset Selection</h2>
+  <p>The project moves from an easy coarse case up to two genuinely hard fine grained benchmarks, increasing image resolution and breed count at each step.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>CIFAR 10 Dogs</h3>
+      <p>6,000 images at 32 by 32 pixels, one coarse dog class, no breed sub labels. Used for an initial pass, then dropped once it failed. Covered in the next section.</p>
+    </div>
+    <div class="card">
+      <h3>Imagewoof</h3>
+      <p>9,025 images across 10 dog breeds, resized to 224 by 224 pixels, split 80/10/10 with a fixed seed. The primary benchmark for model comparison.</p>
+    </div>
+    <div class="card">
+      <h3>Oxford Dogs</h3>
+      <p>4,978 images across 25 breeds, sourced from Flickr and independent of ImageNet. The hardest and largest breed count tested, and the benchmark used for every robustness experiment.</p>
+    </div>
+    <div class="card">
+      <h3>Oxford Cats</h3>
+      <p>2,371 images across 12 breeds, same Flickr source as Oxford Dogs. Included to test whether the findings generalize beyond dogs to another species.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 PIPELINE AND MODELS -->
+<section class="slide" id="s4" data-title="Pipeline">
+  <div class="kicker">03 &middot; Method</div>
+  <h2>Pipeline and Feature Extractors</h2>
+  <p>Every image goes through the same process. A pretrained model looks at the photo and produces a list of numbers describing what it sees, without knowing anything about breeds. Those numbers are standardized and compressed, then a clustering algorithm groups similar looking photos together. Only afterward are the results checked against the true breed labels, to see how well the grouping matches reality.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>ResNet 18</h3>
+      <p>18 layer residual network with the classification head removed. Produces a 512 dimensional feature vector per image from 11.7 million parameters. Needs no PCA before clustering given its already low dimensionality.</p>
+    </div>
+    <div class="card">
+      <h3>VGG 16</h3>
+      <p>13 convolutional layers plus two fully connected blocks retained, final classifier removed. Produces a 4,096 dimensional vector from 134 million parameters, 8 times larger than ResNet 18, reduced with PCA before clustering.</p>
+    </div>
+    <div class="card">
+      <h3>ViT B/16</h3>
+      <p>Vision Transformer base model, 86 million parameters, producing a 768 dimensional class token. Self attention weighs discriminative regions directly, with no explicit segmentation step required.</p>
+    </div>
+    <div class="card">
+      <h3>ViT L/16</h3>
+      <p>The large Vision Transformer variant, 307 million parameters, producing a 1,024 dimensional class token. Shares the same pretraining as ViT B/16 but with substantially higher representational capacity.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 CIFAR-10 FAILURE CASE -->
+<section class="slide" id="s5" data-title="CIFAR 10 Failure">
+  <div class="kicker">04 &middot; Failure Case</div>
+  <h2>The CIFAR 10 Failure Case</h2>
+  <p>The first attempt used CIFAR 10's dog images as an easy starting point, but the results were poor across the board. Two separate problems were at fault. First, the images are only 32 by 32 pixels, far too coarse to preserve the coat texture and facial detail that actually separate one breed from another, and enlarging the images afterward cannot recover detail that was never captured. Second, CIFAR 10 has no breed labels at all, just one general dog category, so there was no way to check whether any grouping found was actually meaningful.</p>
+  <div class="statrow" style="margin-top:1.4rem;">
+    <div class="stat"><div class="num">0.014</div><div class="lbl">Best silhouette, ResNet 18</div></div>
+    <div class="stat"><div class="num">0.054</div><div class="lbl">Best silhouette, VGG 16</div></div>
+    <div class="stat"><div class="num">32px</div><div class="lbl">Native image resolution</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">Breed sub labels available</div></div>
+  </div>
+</section>
+
+<!-- 6 BASELINE RESULTS -->
+<section class="slide" id="s6" data-title="Baseline Results">
+  <div class="kicker">05 &middot; Baseline Clustering</div>
+  <h2>Baseline Clustering Results</h2>
+  <p>Once the images were large enough and real breed labels existed to check against, both models did genuinely well. ResNet 18 correctly grouped photos into clusters that lined up with true breeds most of the time, and the same held for VGG 16, even though its feature vectors are 8 times larger. Neither model consistently beat the other, which is one of the more interesting findings of the project.</p>
+  <div class="chartbox">
+    <div class="chart-holder"><canvas id="chartBaseline"></canvas></div>
+    <div class="caption">Adjusted Rand Index by dataset. Higher means the clusters line up better with true breeds.</div>
+  </div>
+  <div class="grid2" style="margin-top:1.4rem;">
+    <div class="card">
+      <img src="img/tsne_imagewoof.png" alt="t-SNE visualization of ResNet 18 features on Imagewoof" style="width:100%; border-radius:10px;">
+      <div class="caption" style="margin-top:.6rem;">Imagewoof, ResNet 18, K=10. True breed labels (left) and K Means clusters (right) align closely.</div>
+    </div>
+    <div class="card">
+      <img src="img/cm_imagewoof.png" alt="Confusion matrix for ResNet 18 on Imagewoof" style="width:100%; border-radius:10px;">
+      <div class="caption" style="margin-top:.6rem;">Strong diagonal dominance. Only Beagle and English Foxhound share a cluster, a biologically reasonable mix up between two similar hounds.</div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:1.4rem;">
+    <div class="card">
+      <img src="img/tsne_oxford_dogs.png" alt="t-SNE visualization of ResNet 18 features on Oxford Dogs" style="width:100%; border-radius:10px;">
+      <div class="caption" style="margin-top:.6rem;">Oxford Dogs, 25 breeds. Tighter, more separated clusters than Imagewoof, matching its higher purity.</div>
+    </div>
+    <div class="card">
+      <img src="img/tsne_oxford_cats.png" alt="t-SNE visualization of ResNet 18 features on Oxford Cats" style="width:100%; border-radius:10px;">
+      <div class="caption" style="margin-top:.6rem;">Oxford Cats, 12 breeds. Considerably more overlap than either dog dataset, foreshadowing the species gap below.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 SAM BACKGROUND REMOVAL -->
+<section class="slide" id="s7" data-title="Background Removal">
+  <div class="kicker">06 &middot; Robustness Experiment One</div>
+  <h2>Background Removal Experiment</h2>
+  <p>A natural guess is that clustering would improve if the background were removed first, leaving only the animal. The Segment Anything Model was used to blank out backgrounds with solid black or white fill, and the result was the opposite of what was expected. Every comparison, 18 in total across both models and all three datasets, came out worse than simply leaving the background in.</p>
+  <div class="chartbox">
+    <div class="chart-holder"><canvas id="chartSAM"></canvas></div>
+    <div class="caption">ResNet 18 Adjusted Rand Index, baseline versus both background removal variants. The baseline wins every comparison.</div>
+  </div>
+</section>
+
+<!-- 8 LIGHTING ROBUSTNESS -->
+<section class="slide" id="s8" data-title="Lighting Robustness">
+  <div class="kicker">07 &middot; Robustness Experiment Two</div>
+  <h2>Lighting Robustness Experiment</h2>
+  <p>Real world photos are not always well lit, so both models were tested under progressively darker conditions. Performance dropped substantially for both species, but dogs were hit much harder than cats. That difference likely comes down to what actually distinguishes each species. Dog breeds are largely told apart by coat color and markings, which fade in low light, while cat breeds depend more on body shape and coat texture, which hold up better when it gets dark.</p>
+  <div class="grid2">
+    <div class="chartbox">
+      <div class="chart-holder"><canvas id="chartLightingDogs"></canvas></div>
+      <div class="caption">Dogs. Adjusted Rand Index falls sharply as brightness drops for both models.</div>
+    </div>
+    <div class="chartbox">
+      <div class="chart-holder"><canvas id="chartLightingCats"></canvas></div>
+      <div class="caption">Cats. Still a real decline, but noticeably more moderate than dogs at every brightness level.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 ARCHITECTURE COMPARISON -->
+<section class="slide" id="s9" data-title="Architecture Comparison">
+  <div class="kicker">08 &middot; Robustness Experiment Three</div>
+  <h2>Architecture Comparison: Vision Transformers</h2>
+  <p>The clearest result in the project came from swapping the feature extractor architecture entirely. Vision Transformers, which process an image differently from the two convolutional networks tested earlier, outperformed both of them by a wide margin. The improvement needed no extra preprocessing and no breed labels. It came from a different way of looking at the image, one that naturally pays more attention to the animal itself and less to the background around it.</p>
+  <div class="grid2">
+    <div class="chartbox">
+      <div class="chart-holder"><canvas id="chartArchDogs"></canvas></div>
+      <div class="caption">Oxford Dogs. Both Vision Transformers clear a wide gap over either convolutional model.</div>
+    </div>
+    <div class="chartbox">
+      <div class="chart-holder"><canvas id="chartArchCats"></canvas></div>
+      <div class="caption">Oxford Cats. Smaller gains overall, but ViT L/16's extra capacity still helps the most.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 DISCUSSION AND LIMITATIONS -->
+<section class="slide" id="s10" data-title="Discussion">
+  <div class="kicker">09 &middot; Discussion</div>
+  <h2>Discussion and Limitations</h2>
+  <p>Several constraints limit how far these conclusions generalize, and they are worth stating plainly.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>K Means assumes round clusters</h3>
+      <p>K Means expects roughly spherical, evenly sized clusters, an assumption visibly violated by the oversized clusters observed in several experiments. Breeds sharing coat color or body shape get pulled into one oversized cluster. A method such as HDBSCAN or a Gaussian Mixture Model, neither of which assumes round clusters, might recover more of these irregular boundaries.</p>
+    </div>
+    <div class="card">
+      <h3>PCA discarded real signal</h3>
+      <p>Dimensionality reduction used a fixed component count rather than a variance threshold. VGG 16 features retained only 55.13% of variance at 100 components, meaning close to half of the representational signal was thrown away before clustering even began. A higher component count, or an alternative such as UMAP, might preserve more of that structure.</p>
+    </div>
+    <div class="card">
+      <h3>No lighting robustness</h3>
+      <p>The pipeline has no built in tolerance for non standard lighting. Dog clustering quality drops by up to 85% in very dark conditions, which would be a serious failure mode in any setting where lighting cannot be controlled, such as an outdoor camera or a user submitted photo.</p>
+    </div>
+    <div class="card">
+      <h3>Frozen features only</h3>
+      <p>Every model was used as a frozen extractor with no task specific adaptation. Fine tuning even a small part of the network on a breed labeled dataset would likely close much of the remaining gap between the convolutional models and the Vision Transformers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 KEY FINDINGS -->
+<section class="slide" id="s11" data-title="Key Findings">
+  <div class="kicker">10 &middot; Key Findings</div>
+  <h2>Key Findings and Future Directions</h2>
+  <ul style="font-size:1.06rem; line-height:1.7; color:var(--muted); padding-left:1.3rem;">
+    <li><strong style="color:var(--text);">Resolution is a hard prerequisite.</strong> No model, method, or amount of tuning recovered from CIFAR 10's 32 pixel images. Any dataset below roughly 100 pixels on its shorter side should be expected to fail this entire approach.</li>
+    <li><strong style="color:var(--text);">Feature size alone does not drive quality.</strong> VGG 16 produces 8 times more features than ResNet 18 per image, yet neither model consistently wins. We learnt that Global average pooling (not dimensionality), shared by both, was the limiting factor.</li>
+    <li><strong style="color:var(--text);">Self attention outperforms pooling by a wide margin.</strong> ViT B/16 improved on the stronger convolutional model by 50%, using the same frozen pretrained approach and no additional preprocessing.</li>
+  </ul>
+  <div class="card" style="margin-top:1.4rem;">
+    <h3>Future directions</h3>
+    <p>Fine tuning on a small breed labeled set, replacing K Means with density based clustering such as HDBSCAN, adding brightness augmentation during feature extraction, and extending the comparison to domain specific pretrained models are the most promising next steps.</p>
+  </div>
+  <div class="card" style="margin-top:1.4rem;">
+    <h3>Development approach</h3>
+    <p>Isabella and I used Claude to accelerate implementation and debugging across the experiment pipeline, while we owned every methodology decision, from dataset selection to which robustness experiments to run and how to interpret the results.</p>
+  </div>
+</section>
+
+<!-- 12 CONTACT -->
+<section class="slide" id="s12" data-title="Contact">
+  <div class="kicker">Thank you for reading</div>
+  <p>Co authored with Isabella Ran at the University of Texas at Dallas.</p>
+  <div class="statrow links" style="margin-top:1rem;">
+    <div class="stat"><div class="lbl">GitHub</div><a href="https://github.com/Sal-Fakoya" target="_blank" rel="noopener">Sal Fakoya</a></div>
+    <div class="stat"><div class="lbl">LinkedIn</div><a href="https://www.linkedin.com/in/salamot-fakoya-650325224/" target="_blank" rel="noopener">Salamot Fakoya</a></div>
+    <div class="stat"><div class="lbl">GitHub</div><a href="#" onclick="event.preventDefault();">Isabella Ran</a></div>
+    <div class="stat"><div class="lbl">LinkedIn</div><a href="#" onclick="event.preventDefault();">Isabella Ran</a></div>
+  </div>
+  <div class="share no-print">
+    <button onclick="sharePage()" title="Share">&#128257; Share</button>
+    <button onclick="copyLink()" id="copyBtn" title="Copy link">&#128279; Copy link</button>
+    <a id="shareLinkedIn" href="#" target="_blank" rel="noopener">in Share on LinkedIn</a>
+    <a id="shareX" href="#" target="_blank" rel="noopener">Share on X</a>
+  </div>
+  <div class="no-print" style="margin-top:1.5rem; display:flex; gap:.8rem; flex-wrap:wrap;">
+    <button class="btn" onclick="downloadPDF()">&#8595; Download as PDF</button>
+    <a class="btn ghost" href="https://github.com/Sal-Fakoya" target="_blank" rel="noopener">View the code on GitHub</a>
+  </div>
+</section>
+
+</main>
+
+<footer>Built by Sal Fakoya and Isabella Ran &middot; CS 4375 Machine Learning &middot; Dog Breed Discovery</footer>
+
+<script>
+/* ---------- storage helpers ---------- */
+function safeGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function safeSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+/* ---------- theme ---------- */
+const THEME_LABELS = { light:'Light', dark:'Dark', navy:'Navy', forest:'Forest', clay:'Clay' };
+const DARK_THEMES = ['dark', 'navy'];
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('#themePanel button').forEach(b => b.classList.toggle('active', b.dataset.themeChoice === t));
+  document.getElementById('themeBtnLabel').textContent = THEME_LABELS[t] || t;
+  const metaScheme = document.querySelector('meta[name="color-scheme"]');
+  if (metaScheme) metaScheme.setAttribute('content', DARK_THEMES.includes(t) ? 'dark' : 'light');
+  safeSet('sal_theme', t);
+  recolorCharts();
+  closeThemeMenu();
+  if (typeof syncNavHeight === 'function') syncNavHeight();
+}
+/* ---------- PDF ---------- */
+function downloadPDF(){
+  closeMenu();
+  closeThemeMenu();
+  window.print();
+}
+/* ---------- expand dropdowns for print (works for native Ctrl+P too) ---------- */
+let detailsClosedBeforePrint = [];
+window.addEventListener('beforeprint', () => {
+  detailsClosedBeforePrint = Array.from(document.querySelectorAll('details:not([open])'));
+  detailsClosedBeforePrint.forEach(d => d.open = true);
+});
+window.addEventListener('afterprint', () => {
+  detailsClosedBeforePrint.forEach(d => d.open = false);
+  detailsClosedBeforePrint = [];
+});
+/* ---------- quick nav menu (dropdown in the top bar) ---------- */
+const slides = Array.from(document.querySelectorAll('section.slide'));
+const menuPanel = document.getElementById('menuPanel');
+slides.forEach(s => {
+  const a = document.createElement('a');
+  a.href = '#' + s.id;
+  a.textContent = s.dataset.title || s.id;
+  a.onclick = closeMenu;
+  menuPanel.appendChild(a);
+});
+const menuLinks = Array.from(menuPanel.children);
+const menuBtn = document.getElementById('menuBtn');
+function syncMenuAria(){ menuBtn.setAttribute('aria-expanded', menuPanel.classList.contains('open') ? 'true' : 'false'); }
+/* ---------- dropdown positioning (keeps panels fully on-screen) ---------- */
+function positionPanel(panel, btn){
+  const r = btn.getBoundingClientRect();
+  const w = panel.offsetWidth || 220;
+  let left = r.right - w;
+  left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+  panel.style.left = left + 'px';
+  panel.style.top = (r.bottom + 8) + 'px';
+}
+function repositionOpenPanels(){
+  if (menuPanel.classList.contains('open')) positionPanel(menuPanel, menuBtn);
+  if (themePanel.classList.contains('open')) positionPanel(themePanel, themeBtn);
+}
+window.addEventListener('resize', repositionOpenPanels);
+/* ---------- keep --nav-h in sync with the real (possibly 2-row) nav height ---------- */
+const navEl = document.querySelector('nav');
+function syncNavHeight(){
+  document.documentElement.style.setProperty('--nav-h', navEl.getBoundingClientRect().height + 'px');
+}
+syncNavHeight();
+window.addEventListener('resize', syncNavHeight);
+window.addEventListener('load', syncNavHeight);
+function toggleMenu(){ closeThemeMenu(); const willOpen = !menuPanel.classList.contains('open'); if (willOpen) positionPanel(menuPanel, menuBtn); menuPanel.classList.toggle('open'); syncMenuAria(); }
+function closeMenu(){ menuPanel.classList.remove('open'); syncMenuAria(); }
+/* ---------- theme dropdown ---------- */
+const themePanel = document.getElementById('themePanel');
+const themeBtn = document.getElementById('themeBtn');
+function syncThemeAria(){ themeBtn.setAttribute('aria-expanded', themePanel.classList.contains('open') ? 'true' : 'false'); }
+function toggleThemeMenu(){ closeMenu(); const willOpen = !themePanel.classList.contains('open'); if (willOpen) positionPanel(themePanel, themeBtn); themePanel.classList.toggle('open'); syncThemeAria(); }
+function closeThemeMenu(){ themePanel.classList.remove('open'); syncThemeAria(); }
+setTheme(safeGet('sal_theme') || 'light');
+document.addEventListener('click', e => {
+  if (!e.target.closest('.menu-wrap')) { closeMenu(); closeThemeMenu(); }
+});
+/* ---------- hero contents menu ---------- */
+const heroToc = document.getElementById('heroToc');
+slides.slice(1, -1).forEach((s, idx) => {
+  const a = document.createElement('a');
+  a.href = '#' + s.id;
+  a.innerHTML = '<span class="n">' + String(idx+1).padStart(2,'0') + '</span> ' + (s.dataset.title || s.id);
+  heroToc.appendChild(a);
+});
+/* ---------- charts ---------- */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+const chartRegistry = {};
+const CHART = { blue:'#3b82f6', amber:'#f59e0b', green:'#10b981', purple:'#8b5cf6', slate:'#64748b', silver:'#cbd5e1' };
+const CHART_HOVER = { blue:'#60a5fa', amber:'#fbbf24', green:'#34d399', purple:'#a78bfa', slate:'#94a3b8', silver:'#e2e8f0' };
+function palette(){ return { text: cssVar('--muted'), grid: cssVar('--border') }; }
+const pctFmt = v => (v*100).toFixed(1) + '%';
+const ariFmt = v => v.toFixed(3);
+const valueLabelPlugin = {
+  id: 'valueLabel',
+  beforeDraw(chart){
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.fillStyle = cssVar('--card');
+    ctx.fillRect(0, 0, chart.width, chart.height);
+    ctx.restore();
+  },
+  afterDatasetsDraw(chart){
+    const cfg = chart.config.options.plugins && chart.config.options.plugins.valueLabel;
+    if (!cfg) return;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = '700 12px "Segoe UI", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = cssVar('--text');
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    chart.data.datasets.forEach((ds, di) => {
+      const meta = chart.getDatasetMeta(di);
+      if (!meta || meta.hidden) return;
+      meta.data.forEach((el, i) => {
+        const v = ds.data[i];
+        if (v == null || !el) return;
+        ctx.fillText(cfg.formatter(v), el.x, el.y - 4);
+      });
+    });
+    ctx.restore();
+  }
+};
+function baseOptions(titleText){
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400, easing: 'easeOutQuart' },
+    layout: { padding: { top: 22 } },
+    interaction: { mode: 'index', intersect: false },
+    onHover: (evt, els) => {
+      const t = evt && evt.native && evt.native.target;
+      if (t) t.style.cursor = els && els.length ? 'pointer' : 'default';
+    },
+    onClick: function(e){
+      if (e.native && e.native.detail === 2) {
+        this.data.datasets.forEach(ds => { ds.hidden = false; });
+        this.update();
+      }
+    },
+    plugins: {
+      legend: {
+        labels: { boxWidth: 12, boxHeight: 12, padding: 14, usePointStyle: true },
+        onClick: function(e, legendItem, legend){
+          const index = legendItem.datasetIndex;
+          const ci = legend.chart;
+          const isolated = ci.data.datasets.every((ds, i) => i === index ? ds.hidden !== true : ds.hidden === true);
+          ci.data.datasets.forEach((ds, i) => { ds.hidden = isolated ? false : (i !== index); });
+          ci.update();
+        }
+      },
+      title: { display: true, text: titleText, font: { size: 14, weight: '600' } },
+      tooltip: {
+        enabled: true, padding: 12, cornerRadius: 8, boxPadding: 6,
+        backgroundColor: cssVar('--card'), titleColor: cssVar('--text'),
+        bodyColor: cssVar('--muted'), borderColor: cssVar('--border'), borderWidth: 1,
+        titleFont: { weight: '700' }
+      }
+    }
+  };
+}
+function buildChart(id){
+  if (chartRegistry[id] || !window.Chart) return;
+  const p = palette();
+  Chart.defaults.color = p.text;
+  Chart.defaults.borderColor = p.grid;
+  Chart.defaults.font.family = '"Segoe UI", system-ui, sans-serif';
+  const el = document.getElementById(id);
+  if (!el) return;
+  let chart;
+  try {
+    if (id === 'chartBaseline'){
+      const o = baseOptions('Baseline clustering: Adjusted Rand Index by dataset');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:0.7 } };
+      chart = new Chart(el, { type:'bar', data: { labels:['Imagewoof','Oxford Dogs','Oxford Cats'],
+        datasets:[
+          { label:'ResNet18', data:[0.581,0.530,0.261], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'VGG16', data:[0.571,0.493,0.283], backgroundColor:CHART.amber, hoverBackgroundColor:CHART_HOVER.amber, borderRadius:6 } ] }, options:o });
+    }
+    else if (id === 'chartSAM'){
+      const o = baseOptions('ResNet18: baseline vs background removal');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:0.7 } };
+      chart = new Chart(el, { type:'bar', data: { labels:['Imagewoof','Oxford Dogs','Oxford Cats'],
+        datasets:[
+          { label:'Baseline', data:[0.580,0.530,0.261], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'SAM, black fill', data:[0.251,0.248,0.143], backgroundColor:CHART.slate, hoverBackgroundColor:CHART_HOVER.slate, borderRadius:6 },
+          { label:'SAM, white fill', data:[0.143,0.362,0.261], backgroundColor:CHART.silver, hoverBackgroundColor:CHART_HOVER.silver, borderRadius:6, borderColor: cssVar('--border'), borderWidth:1 } ] }, options:o });
+    }
+    else if (id === 'chartLightingDogs'){
+      const o = baseOptions('Dogs: Adjusted Rand Index by brightness');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:0.6 } };
+      chart = new Chart(el, { type:'bar', data: { labels:['Normal','Dark','Very dark'],
+        datasets:[
+          { label:'ResNet18', data:[0.530,0.254,0.124], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'VGG16', data:[0.493,0.295,0.075], backgroundColor:CHART.amber, hoverBackgroundColor:CHART_HOVER.amber, borderRadius:6 } ] }, options:o });
+    }
+    else if (id === 'chartLightingCats'){
+      const o = baseOptions('Cats: Adjusted Rand Index by brightness');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:0.6 } };
+      chart = new Chart(el, { type:'bar', data: { labels:['Normal','Dark','Very dark'],
+        datasets:[
+          { label:'ResNet18', data:[0.261,0.202,0.080], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'VGG16', data:[0.283,0.163,0.094], backgroundColor:CHART.amber, hoverBackgroundColor:CHART_HOVER.amber, borderRadius:6 } ] }, options:o });
+    }
+    else if (id === 'chartArchDogs'){
+      const o = baseOptions('Oxford Dogs: feature extractor comparison');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:1.0 } };
+      chart = new Chart(el, { type:'bar', data: { labels:[['ResNet18','(512d)'],['VGG16','(4096d)'],['ViT-B/16','(768d)'],['ViT-L/16','(1024d)']],
+        datasets:[
+          { label:'ARI', data:[0.530,0.493,0.796,0.773], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'NMI', data:[0.789,0.765,0.925,0.918], backgroundColor:CHART.purple, hoverBackgroundColor:CHART_HOVER.purple, borderRadius:6 } ] }, options:o });
+    }
+    else if (id === 'chartArchCats'){
+      const o = baseOptions('Oxford Cats: feature extractor comparison');
+      o.plugins.valueLabel = { formatter: ariFmt };
+      o.plugins.tooltip.callbacks = { label: c => c.dataset.label + ': ' + ariFmt(c.parsed.y) };
+      o.scales = { y: { beginAtZero:true, max:0.8 } };
+      chart = new Chart(el, { type:'bar', data: { labels:[['ResNet18','(512d)'],['VGG16','(4096d)'],['ViT-B/16','(768d)'],['ViT-L/16','(1024d)']],
+        datasets:[
+          { label:'ARI', data:[0.261,0.283,0.315,0.437], backgroundColor:CHART.blue, hoverBackgroundColor:CHART_HOVER.blue, borderRadius:6 },
+          { label:'NMI', data:[0.482,0.533,0.564,0.662], backgroundColor:CHART.purple, hoverBackgroundColor:CHART_HOVER.purple, borderRadius:6 } ] }, options:o });
+    }
+  } catch(e){ console.warn('Failed to build chart:', id, e); return; }
+  if (!chart) return;
+  chartRegistry[id] = chart;
+  requestAnimationFrame(() => { try { chart.resize(); } catch(e){} });
+}
+/* ---------- build chart only when its slide becomes visible ---------- */
+function ensureChartsInSlide(section){
+  if (!window.Chart) return;
+  section.querySelectorAll('canvas').forEach(c => {
+    const id = c.id;
+    if (!chartRegistry[id]) { buildChart(id); }
+    const ch = chartRegistry[id];
+    if (ch && typeof ch.resize === 'function') {
+      requestAnimationFrame(() => { try { ch.resize(); } catch(e){} });
+    }
+  });
+}
+/* ---------- reveal + active tracking ---------- */
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting){
+      e.target.classList.add('in');
+      const i = slides.indexOf(e.target);
+      menuLinks.forEach((d,j)=>d.classList.toggle('on', i===j));
+      ensureChartsInSlide(e.target);
+    }
+  });
+}, { threshold: .15 });
+slides.forEach(s => revealObs.observe(s));
+/* ---------- recolor charts on theme switch ---------- */
+function recolorCharts(){
+  if (!window.Chart) return;
+  const p = palette();
+  Chart.defaults.color = p.text;
+  Chart.defaults.borderColor = p.grid;
+  Object.values(chartRegistry).forEach(ch => {
+    if (!ch) return;
+    if (ch.options.scales){
+      Object.values(ch.options.scales).forEach(s => {
+        if (!s) return;
+        s.grid = Object.assign({}, s.grid, { color: p.grid });
+        if (!s.ticks) s.ticks = {};
+        s.ticks.color = p.text;
+      });
+    }
+    const tt = ch.options.plugins && ch.options.plugins.tooltip;
+    if (tt){
+      tt.backgroundColor = cssVar('--card');
+      tt.titleColor = cssVar('--text');
+      tt.bodyColor = cssVar('--muted');
+      tt.borderColor = cssVar('--border');
+    }
+    ch.update('none');
+  });
+}
+/* ---------- init: wait for Chart.js, register plugin, pre-build visible charts ---------- */
+function initCharts(){
+  if (!window.Chart){ return setTimeout(initCharts, 60); }
+  try { Chart.register(valueLabelPlugin); } catch(e){}
+  slides.forEach(s => s.querySelectorAll('canvas').forEach(c => buildChart(c.id)));
+  setTimeout(() => {
+    Object.values(chartRegistry).forEach(ch => {
+      if (ch && typeof ch.resize === 'function') { try { ch.resize(); } catch(e){} }
+    });
+  }, 100);
+  if (window.ResizeObserver) {
+    document.querySelectorAll('.chart-holder').forEach(holder => {
+      const canvas = holder.querySelector('canvas');
+      if (!canvas) return;
+      const ro = new ResizeObserver(() => {
+        const chart = chartRegistry[canvas.id];
+        if (chart) { try { chart.resize(); } catch(e){} }
+      });
+      ro.observe(holder);
+    });
+  }
+}
+function clearChartTooltips(){
+  Object.values(chartRegistry).forEach(chart => {
+    if (!chart) return;
+    try {
+      chart.setActiveElements([]);
+      if (chart.tooltip) chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+      chart.update();
+    } catch(e){}
+  });
+}
+if (document.readyState === 'complete') initCharts();
+else window.addEventListener('load', initCharts);
+window.addEventListener('beforeprint', () => {
+  slides.forEach(ensureChartsInSlide);
+  const resizeAll = () => {
+    clearChartTooltips();
+    Object.values(chartRegistry).forEach(c => { if (c) { try { c.resize(); } catch(e){} } });
+  };
+  resizeAll();
+  requestAnimationFrame(() => requestAnimationFrame(resizeAll));
+  setTimeout(resizeAll, 150);
+});
+/* ---------- progress bar + back-to-top ---------- */
+const progress = document.getElementById('progress');
+const toTop = document.getElementById('toTop');
+function onScroll(){
+  const h = document.documentElement;
+  const pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  progress.style.width = pct + '%';
+  toTop.classList.toggle('show', h.scrollTop > 600);
+}
+window.addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+/* ---------- keyboard navigation ---------- */
+document.addEventListener('keydown', e => {
+  const fwd = ['ArrowDown','PageDown','ArrowRight',' '];
+  const back = ['ArrowUp','PageUp','ArrowLeft'];
+  if (!fwd.includes(e.key) && !back.includes(e.key)) return;
+  if (['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+  const cur = slides.findIndex(s => { const r = s.getBoundingClientRect(); return r.top >= -window.innerHeight/2 && r.top < window.innerHeight/2; });
+  if (cur === -1) return;
+  e.preventDefault();
+  const next = back.includes(e.key) ? Math.max(0,cur-1) : Math.min(slides.length-1,cur+1);
+  slides[next].scrollIntoView({ behavior:'smooth' });
+});
+/* ---------- share ---------- */
+function shareData(){ return { title: 'Coarse and Fine Grained Dog Breed Discovery', text: 'A computer vision research project evaluating ResNet 18, VGG 16, and Vision Transformers for breed level clustering.', url: location.href }; }
+function sharePage(){
+  if (navigator.share){ navigator.share(shareData()).catch(()=>{}); }
+  else { copyLink(); }
+}
+function copyLink(){
+  const btn = document.getElementById('copyBtn');
+  navigator.clipboard && navigator.clipboard.writeText(location.href).then(()=>{
+    const old = btn.innerHTML; btn.innerHTML = '&#10003; Copied'; setTimeout(()=>btn.innerHTML = old, 1800);
+  }).catch(()=>{});
+}
+document.getElementById('shareLinkedIn').href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(location.href);
+document.getElementById('shareX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent('Coarse and Fine Grained Dog Breed Discovery: comparing CNNs and Vision Transformers ') + '&url=' + encodeURIComponent(location.href);
+</script>
+</body>
+</html>
