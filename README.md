@@ -4,7 +4,7 @@ Unsupervised breed level clustering using frozen pretrained CNN and Vision Trans
 
 **Authors:** Salamot Fakoya, Isabella Ran — University of Texas at Dallas, CS 4375 Machine Learning
 
-**Live walkthrough:** https://sal-fakoya.github.io/unsupervised-breed-clustering/
+**Live walkthrough:** https://sal-fakoya.github.io/Dog-Breed-Discovery-Research-Project-CS-4375-Machine-Learning/
 
 ---
 
@@ -24,7 +24,7 @@ The question being tested: do general purpose pretrained representations already
 | Lighting degradation | Dog clustering ARI drops 52–85% in low light; cats drop only 23–69%. Dog breeds lean more on coat color, which fades first. |
 | Architecture comparison | ViT-B/16 reaches ARI 0.796 on Oxford Dogs, a 50% improvement over ResNet-18 and 62% over VGG-16. Self attention outperforms global average pooling by a wide margin. |
 
-Full methodology, all four experiments, and the complete discussion of limitations are in the [live presentation](https://sal-fakoya.github.io/unsupervised-breed-clustering/) and the project report.
+Full methodology, all four experiments, and the complete discussion of limitations are in the [live presentation](https://sal-fakoya.github.io/Dog-Breed-Discovery-Research-Project-CS-4375-Machine-Learning/) and the project report.
 
 ## Datasets
 
