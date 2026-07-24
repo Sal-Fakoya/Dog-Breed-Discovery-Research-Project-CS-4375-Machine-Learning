@@ -1,0 +1,88 @@
+IMAGEWOOF DOG BREED DISCOVERY PROJECT - COMPLETE CHECKLIST
+
+Step 1: Download Dataset
+[ ] Download Imagewoof dataset (imagewoof2-160.tgz, ~200MB)
+[ ] Extract files to ./imagewoof2-160/ folder
+[ ] Verify 10 breed folders exist
+
+Step 2: Import Libraries
+[ ] Import torch, torchvision
+[ ] Import transforms, models, DataLoader
+[ ] Import numpy, matplotlib
+[ ] Import KMeans, silhouette_score, StandardScaler
+[ ] Import tqdm
+
+Step 3: Load Dataset
+[ ] Define transforms (resize 224x224, normalize)
+[ ] Load Imagewoof using ImageFolder
+[ ] Print dataset info (total images, breed names)
+
+Step 4: Split Dataset
+[ ] Split 80% training, 10% validation, 10% test
+[ ] Create DataLoaders (batch_size=32)
+[ ] Verify split sizes
+
+Step 5: Load Pretrained Model
+[ ] Set device (GPU if available)
+[ ] Load pretrained model (ResNet-18 OR VGG16)
+[ ] Remove classification head
+[ ] Set to evaluation mode (.eval())
+[ ] Move model to GPU
+
+Step 6: Extract Features
+[ ] Write extract_features() function
+[ ] Extract features from training set
+[ ] Extract features from validation set
+[ ] Extract features from test set
+[ ] Check feature shapes
+
+Step 7: Check Feature Quality
+[ ] Calculate mean, std, min, max of features
+[ ] Check for NaN or Inf values
+[ ] Normalize features with StandardScaler
+[ ] Verify normalization worked (mean≈0, std≈1)
+
+Step 8: K-Means Clustering
+[ ] Test K values: 5, 8, 10, 12, 15, 20
+[ ] For each K, run KMeans on training features
+[ ] Calculate silhouette score for each K
+[ ] Find best K (highest silhouette score)
+[ ] Run final clustering with best K
+
+Step 9: Evaluate Clusters
+[ ] Calculate silhouette score on validation set
+[ ] Calculate Adjusted Rand Index (ARI) against true labels
+[ ] Calculate Normalized Mutual Info (NMI) against true labels
+[ ] Check cluster sizes (should be balanced)
+
+Step 10: Visualize Results
+[ ] Display 5-10 sample images from each cluster
+[ ] Show true breed names below each image
+[ ] Label each cluster with dominant breed
+[ ] Save visualization for report
+
+Step 11: Compare Models (Optional)
+[ ] Compare silhouette scores
+[ ] Compare feature extraction time
+[ ] Compare feature sizes (512 vs 4096)
+[ ] Compare memory usage
+[ ] Create comparison table
+
+Expected Results (Imagewoof):
+[ ] Silhouette score between 0.15 - 0.35
+[ ] Best K between 8 - 12 clusters
+[ ] ARI score between 0.3 - 0.6
+[ ] NMI score between 0.4 - 0.7
+[ ] Clear visual groupings by breed
+
+Success Criteria:
+[ ] Silhouette > 0.2 = Excellent
+[ ] Silhouette 0.1-0.2 = Moderate
+[ ] Silhouette < 0.1 = Poor (check data)
+
+Final Deliverables:
+[ ] Silhouette score (best K value)
+[ ] ARI and NMI scores
+[ ] Cluster visualization image
+[ ] Model comparison table (optional)
+[ ] Conclusion paragraph
