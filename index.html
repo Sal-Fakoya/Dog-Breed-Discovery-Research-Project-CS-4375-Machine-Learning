@@ -480,9 +480,10 @@
     </div>
     <div class="chartbox">
       <div class="chart-holder"><canvas id="chartArchCats"></canvas></div>
-      <div class="caption">Oxford Cats. Smaller gains overall, but ViT L/16's extra capacity still helps the most.</div>
+      <div class="caption">Oxford Cats. Lower overall clustering quality for every model, but the relative jump from CNN to Vision Transformer holds up, and by percentage is even larger than on dogs.</div>
     </div>
   </div>
+  <p style="margin-top:1.4rem;">In relative terms the Vision Transformer advantage was not limited to dogs. The best Vision Transformer improved on the best convolutional model by 50% on Oxford Dogs and by 67% on Oxford Cats. What differed between the species was the ceiling: even with a Vision Transformer, Oxford Cats topped out at an ARI of 0.437 against 0.796 for dogs, matching the pattern documented throughout this project of cats being the harder clustering problem overall, regardless of architecture.</p>
 </section>
 
 <!-- 10 DISCUSSION AND LIMITATIONS -->
@@ -510,14 +511,39 @@
   </div>
 </section>
 
-<!-- 11 KEY FINDINGS -->
-<section class="slide" id="s11" data-title="Key Findings">
-  <div class="kicker">10 &middot; Key Findings</div>
+<!-- 11 RECOMMENDATION -->
+<section class="slide" id="s11" data-title="Recommendation">
+  <div class="kicker">10 &middot; Recommendation</div>
+  <h2>Recommendation and Practical Implications</h2>
+  <p>For a team building a similar fine grained visual clustering system, the practical recommendation is straightforward. Use a frozen Vision Transformer as the default feature extractor rather than a convolutional network. The improvement held across both species tested, needed no extra preprocessing, and needed no fine tuning at all, which makes it close to a free upgrade over either convolutional baseline evaluated here.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Skip background removal</h3>
+      <p>Segmentation preprocessing with SAM added real computational cost, about 74 minutes on a single GPU for VGG 16 alone, while making results worse in every comparison tested. For this class of problem, that engineering effort is better spent elsewhere.</p>
+    </div>
+    <div class="card">
+      <h3>Resolution is a hard requirement</h3>
+      <p>Any deployment needs source images that clear roughly 100 pixels on the shorter side. Below that threshold, as CIFAR 10 demonstrated, no model or method recovers usable structure. This is worth checking before any other design decision.</p>
+    </div>
+    <div class="card">
+      <h3>Lighting still needs its own fix</h3>
+      <p>Even the best architecture tested here was never evaluated under degraded lighting. If a real deployment cannot guarantee consistent lighting, such as user submitted photos or an outdoor camera, brightness normalization or augmentation should be added to the pipeline regardless of which feature extractor is used.</p>
+    </div>
+    <div class="card">
+      <h3>Match model size to the hardest species in scope</h3>
+      <p>ViT L/16's extra capacity specifically helped on the harder Oxford Cats benchmark, while ViT B/16 alone was enough on Oxford Dogs. A deployment covering only one easily separable species can likely use the smaller model without a real cost in quality.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 12 KEY FINDINGS -->
+<section class="slide" id="s12" data-title="Key Findings">
+  <div class="kicker">11 &middot; Key Findings</div>
   <h2>Key Findings and Future Directions</h2>
   <ul style="font-size:1.06rem; line-height:1.7; color:var(--muted); padding-left:1.3rem;">
     <li><strong style="color:var(--text);">Resolution is a hard prerequisite.</strong> No model, method, or amount of tuning recovered from CIFAR 10's 32 pixel images. Any dataset below roughly 100 pixels on its shorter side should be expected to fail this entire approach.</li>
     <li><strong style="color:var(--text);">Feature size alone does not drive quality.</strong> VGG 16 produces 8 times more features than ResNet 18 per image, yet neither model consistently wins. We learnt that Global average pooling (not dimensionality), shared by both, was the limiting factor.</li>
-    <li><strong style="color:var(--text);">Self attention outperforms pooling by a wide margin.</strong> ViT B/16 improved on the stronger convolutional model by 50%, using the same frozen pretrained approach and no additional preprocessing.</li>
+    <li><strong style="color:var(--text);">Self attention outperforms pooling by a wide margin, on both species.</strong> The best Vision Transformer improved on the best convolutional model by 50% on Oxford Dogs and by 67% on Oxford Cats, using the same frozen pretrained approach and no additional preprocessing. Cats remained the harder clustering problem in absolute terms, but the architectural advantage did not shrink there, it held.</li>
   </ul>
   <div class="card" style="margin-top:1.4rem;">
     <h3>Future directions</h3>
@@ -529,8 +555,8 @@
   </div>
 </section>
 
-<!-- 12 CONTACT -->
-<section class="slide" id="s12" data-title="Contact">
+<!-- 13 CONTACT -->
+<section class="slide" id="s13" data-title="Contact">
   <div class="kicker">Thank you for reading</div>
   <p>Co authored with Isabella Ran at the University of Texas at Dallas.</p>
   <div class="statrow links" style="margin-top:1rem;">
