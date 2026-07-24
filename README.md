@@ -56,7 +56,7 @@ raw image → frozen pretrained feature extractor → StandardScaler → PCA →
 | File | Description |
 |---|---|
 | `CS_4375_ResNet_Cifar.ipynb` | ResNet-18 baseline on CIFAR-10 dogs (failure case) |
-| `CS_4375_ResNet-breed-pipeline.ipynb` | ResNet-18 pipeline across Imagewoof, Oxford Dogs, Oxford Cats, including SAM and lighting experiments |
+| `CS_4375_ResNet-breed-pipeline_1.ipynb` | ResNet-18 pipeline across Imagewoof, Oxford Dogs, Oxford Cats, including SAM and lighting experiments |
 | `vgg16_cifar_model.ipynb` | VGG-16 baseline on CIFAR-10 dogs |
 | `vgg16_breed_pipeline_.ipynb` | VGG-16 pipeline across the three breed datasets |
 | `Midterm_report_CS4375.pdf` | Midterm project report |
